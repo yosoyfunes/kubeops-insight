@@ -602,7 +602,7 @@ def test_analyze_cluster_includes_live_tool_results(monkeypatch) -> None:
 
     class FakeProvider:
         async def generate(self, prompt: str) -> dict[str, object]:
-            assert "diagnosticToolResults" in prompt
+            assert "toolEvidence" in prompt
             return {
                 "summary": "análisis",
                 "overallSeverity": "info",
@@ -621,3 +621,4 @@ def test_analyze_cluster_includes_live_tool_results(monkeypatch) -> None:
     assert response["toolsUsed"] == [
         {"tool": "get_namespace_events", "status": "ok", "params": {"namespace": "prod"}}
     ]
+    assert response["evidencePack"]["toolEvidence"][0]["tool"] == "get_namespace_events"

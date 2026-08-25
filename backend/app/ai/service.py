@@ -140,6 +140,11 @@ def _filter_findings(findings: list[dict[str, Any]], namespace: str | None = Non
     return [finding for finding in findings if finding.get("namespace") == namespace]
 
 
+def _llm_context(snapshot: dict[str, Any], tool_results: list[dict[str, Any]]) -> dict[str, Any]:
+    settings = get_settings()
+    return compile_evidence_pack(snapshot, tool_results, settings.ai_max_findings)
+
+
 def _namespace_from_question(question: str, snapshot: dict[str, Any]) -> str | None:
     pods = snapshot.get("resources", {}).get("pods", [])
     question_lower = question.lower()
@@ -206,7 +211,8 @@ async def analyze_cluster(namespace: str | None = None) -> dict[str, Any]:
             snapshot, namespace, settings.ai_max_tools_per_chat, settings.ai_max_log_tail_lines
         )
         snapshot["diagnosticToolResults"] = tool_results
-    prompt = build_analysis_prompt(snapshot)
+    evidence_pack = _llm_context(snapshot, tool_results)
+    prompt = build_analysis_prompt(evidence_pack)
     provider = get_llm_provider(settings)
     try:
         analysis = _normalize_analysis(await provider.generate(prompt))
@@ -224,6 +230,7 @@ async def analyze_cluster(namespace: str | None = None) -> dict[str, Any]:
             "provider": settings.llm_provider,
             "analysis": analysis,
             "toolsUsed": tool_results,
+            "evidencePack": evidence_pack,
         },
     )
 
@@ -252,7 +259,7 @@ async def chat(question: str, namespace: str | None = None) -> dict[str, Any]:
         snapshot, tool_namespace, settings.ai_max_tools_per_chat, settings.ai_max_log_tail_lines
     )
     snapshot["diagnosticToolResults"] = tool_results
-    evidence_pack = compile_evidence_pack(snapshot, tool_results, settings.ai_max_findings)
+    evidence_pack = _llm_context(snapshot, tool_results)
     if settings.llm_provider == "bedrock":
         try:
             agent_result = await run_kubernetes_agent(question, settings, evidence_pack)
@@ -300,7 +307,7 @@ async def chat(question: str, namespace: str | None = None) -> dict[str, Any]:
                     "toolsUsed": [],
                 },
             )
-    prompt = build_chat_prompt(question, snapshot)
+    prompt = build_chat_prompt(question, evidence_pack)
     provider = get_llm_provider(settings)
     try:
         answer = _normalize_chat_answer(await provider.generate(prompt))
@@ -312,5 +319,6 @@ async def chat(question: str, namespace: str | None = None) -> dict[str, Any]:
             "provider": settings.llm_provider,
             "answer": answer,
             "toolsUsed": tool_results,
+            "evidencePack": evidence_pack,
         },
     )

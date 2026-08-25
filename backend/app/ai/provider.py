@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Any, Protocol
 
@@ -64,19 +65,47 @@ class OpenAICompatibleProvider:
             "max_tokens": self.settings.bedrock_max_tokens,
             "messages": [{"role": "user", "content": prompt}],
         }
+        url = f"{self.settings.openai_compatible_base_url.rstrip('/')}/chat/completions"
         try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                response = await client.post(
-                    f"{self.settings.openai_compatible_base_url.rstrip('/')}/chat/completions",
-                    headers=headers,
-                    json=payload,
-                )
-                response.raise_for_status()
-                body = response.json()
+            body = await self._post_chat_completion(url, headers, payload)
             return parse_json_response(body["choices"][0]["message"]["content"])
+        except httpx.TimeoutException as exc:
+            msg = f"OpenAI-compatible provider timed out after 60s calling {url}"
+            raise LLMProviderError(msg) from exc
+        except httpx.HTTPStatusError as exc:
+            detail = exc.response.text[:500]
+            msg = (
+                "OpenAI-compatible provider failed: "
+                f"HTTP {exc.response.status_code} from {url}: {detail}"
+            )
+            raise LLMProviderError(msg) from exc
         except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
             msg = f"OpenAI-compatible provider failed: {exc}"
             raise LLMProviderError(msg) from exc
+
+    async def _post_chat_completion(
+        self, url: str, headers: dict[str, str], payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        last_error: httpx.HTTPError | None = None
+        async with httpx.AsyncClient(timeout=60) as client:
+            for attempt in range(3):
+                try:
+                    response = await client.post(url, headers=headers, json=payload)
+                    response.raise_for_status()
+                    return response.json()
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code not in {502, 503, 504} or attempt == 2:
+                        raise
+                    last_error = exc
+                except httpx.TimeoutException as exc:
+                    if attempt == 2:
+                        raise
+                    last_error = exc
+                await asyncio.sleep(0.5 * (attempt + 1))
+        if last_error:
+            raise last_error
+        msg = "OpenAI-compatible provider failed without an HTTP response."
+        raise LLMProviderError(msg)
 
 
 def create_bedrock_client(settings: Settings) -> Any:
