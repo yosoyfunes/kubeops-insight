@@ -1,0 +1,21 @@
+KubeOps Insight has been installed.
+
+Frontend service:
+  {{ include "kubeops-insight.fullname" . }}-frontend:{{ .Values.frontend.service.port }}
+
+Backend service:
+  {{ include "kubeops-insight.fullname" . }}-backend:{{ .Values.backend.service.port }}
+
+LLM provider is {{ .Values.llm.provider }}.
+
+For Bedrock on EKS, ensure the ServiceAccount is annotated for IRSA.
+
+{{- if .Values.auth.enabled }}
+
+Authentication is enabled.
+Initial/local username:
+  {{ .Values.auth.username }}
+
+If this chart manages the auth Secret, read the generated password from:
+  Secret {{ include "kubeops-insight.fullname" . }}-auth, key password
+{{- end }}

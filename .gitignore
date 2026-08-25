@@ -1,0 +1,15 @@
+.DS_Store
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.venv/
+backend/.env
+backend/*.egg-info/
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+*.tgz
+!public/*.tgz

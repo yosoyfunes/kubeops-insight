@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KubeOps Insight Helm Chart</title>
+    <style>
+      :root { color: #dbe7f3; background: #0b1220; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #0b1220; }
+      main { max-width: 1180px; margin: 0 auto; padding: 48px 22px 72px; }
+      header { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr); gap: 28px; align-items: start; margin-bottom: 34px; }
+      h1 { margin: 0 0 14px; color: #f8fafc; font-size: clamp(34px, 6vw, 64px); line-height: 0.96; letter-spacing: -0.055em; }
+      h2 { margin: 0 0 12px; color: #f8fafc; font-size: 22px; letter-spacing: -0.03em; }
+      h3 { margin: 0 0 10px; color: #eff6ff; }
+      p { color: #9fb1c7; line-height: 1.6; }
+      a { color: #93c5fd; }
+      code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+      pre { overflow-x: auto; padding: 16px; border: 1px solid #273449; border-radius: 8px; color: #dbeafe; background: #0f172a; }
+      .eyebrow { color: #7dd3fc; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.18em; }
+      .hero-card, section { border: 1px solid #273449; border-radius: 10px; background: #111827; }
+      .hero-card { padding: 22px; }
+      section { margin-top: 18px; padding: 24px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px; }
+      .button { display: inline-flex; align-items: center; justify-content: center; padding: 12px 16px; border: 1px solid #2563eb; border-radius: 6px; color: #eff6ff; background: #2563eb; font-weight: 850; text-decoration: none; }
+      .button.secondary { border-color: #334155; background: #1f2937; }
+      .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+      .tile { padding: 18px; border: 1px solid #273449; border-radius: 8px; background: #0f172a; }
+      .tile strong { display: block; margin-bottom: 8px; color: #f8fafc; }
+      table { width: 100%; border-collapse: collapse; min-width: 760px; }
+      th, td { padding: 12px; border-bottom: 1px solid #273449; color: #cbd5e1; text-align: left; vertical-align: top; }
+      th { color: #7dd3fc; font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; }
+      .table-wrap { overflow-x: auto; }
+      @media (max-width: 820px) { header, .grid { grid-template-columns: 1fr; } main { padding-top: 28px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Helm Chart</p>
+          <h1>KubeOps Insight</h1>
+          <p>Kubernetes operations dashboard with deterministic diagnostics, bounded read-only investigations and optional Strands agentic AI analysis.</p>
+          <div class="actions">
+            <a class="button" href="#install">Install</a>
+            <a class="button secondary" href="index.yaml">Helm index.yaml</a>
+            <a class="button secondary" href="https://github.com/yosoyfunes/kubeops-insight">GitHub</a>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <h2>Chart Repository</h2>
+          <p>Published as a standard Helm repository from GitHub Pages.</p>
+          <p><a href="index.yaml">View index.yaml</a></p>
+        </aside>
+      </header>
+
+      <section>
+        <h2>What It Provides</h2>
+        <div class="grid">
+          <div class="tile"><strong>Live Kubernetes Reads</strong><p>Pods, deployments, services, events, workloads, PVCs, ingresses, findings and metrics summaries.</p></div>
+          <div class="tile"><strong>Read-Only Diagnostics</strong><p>Bounded Kubernetes API tools gather logs, pod details, events, PVC and endpoint evidence without shell access.</p></div>
+          <div class="tile"><strong>Optional Agentic AI</strong><p>Natural-language chat uses a Strands diagnostic agent on Bedrock to choose bounded read-only tools. Disabled by default.</p></div>
+        </div>
+      </section>
+
+      <section id="install">
+        <h2>Install</h2>
+        <h3>1. Add The Repository</h3>
+        <pre>helm repo add kubeops-insight https://yosoyfunes.github.io/kubeops-insight
+helm repo update</pre>
+        <h3>2. Install Helm Chart</h3>
+        <pre>helm upgrade --install kubeops-insight kubeops-insight/kubeops-insight \
+  --namespace kubeops-insight \
+  --create-namespace</pre>
+        <p>Bedrock is the default LLM provider. For EKS, annotate the ServiceAccount with an IRSA role that can invoke Bedrock.</p>
+        <h3>Bedrock With IRSA</h3>
+        <pre>helm upgrade --install kubeops-insight kubeops-insight/kubeops-insight \
+  --namespace kubeops-insight \
+  --create-namespace \
+  --set serviceAccount.annotations.eks\.amazonaws\.com/role-arn=arn:aws:iam::123456789012:role/KubeOpsInsightBedrockIrsaRole</pre>
+      </section>
+
+      <section>
+        <h2>Access The Dashboard</h2>
+        <pre>kubectl -n kubeops-insight port-forward svc/kubeops-insight-kubeops-insight-frontend 5173:80</pre>
+        <p>Open <code>http://localhost:5173</code>. Default username is <code>admin</code>. The initial password is generated in the chart-managed Secret.</p>
+        <pre>kubectl -n kubeops-insight get secret kubeops-insight-kubeops-insight-auth \
+  -o jsonpath='{.data.password}' | base64 --decode</pre>
+      </section>
+
+      <section>
+        <h2>Common Options</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Use case</th><th>Values</th></tr></thead>
+            <tbody>
+              <tr><td>Install Metrics Server</td><td><code>--set metrics.metricsServer.install=true</code></td></tr>
+              <tr><td>Ingress</td><td><code>--set ingress.enabled=true --set ingress.hosts[0].host=kubeops.example.com</code></td></tr>
+              <tr><td>Bedrock</td><td><code>--set llm.provider=bedrock</code></td></tr>
+              <tr><td>IRSA</td><td><code>--set serviceAccount.annotations.eks\.amazonaws\.com/role-arn=arn:aws:iam::123456789012:role/KubeOpsInsightBedrockIrsaRole</code></td></tr>
+              <tr><td>Agent limits</td><td><code>--set llm.agent.maxCycles=5 --set llm.agent.timeoutSeconds=30</code></td></tr>
+              <tr><td>OIDC</td><td><code>--set auth.oidc.enabled=true</code> plus issuer, client ID, redirect URI and Secret.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Security Defaults</h2>
+        <div class="grid">
+          <div class="tile"><strong>Read-only RBAC</strong><p>The backend reads Kubernetes state and pod logs. Mutating actions are disabled by default.</p></div>
+          <div class="tile"><strong>No Shell Execution</strong><p>AI investigations use curated Kubernetes API tools, not arbitrary commands.</p></div>
+          <div class="tile"><strong>Hardened Pods</strong><p>Non-root execution, read-only root filesystem defaults, NetworkPolicy and PDB templates.</p></div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

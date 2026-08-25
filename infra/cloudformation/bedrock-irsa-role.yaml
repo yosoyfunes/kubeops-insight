@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: IAM role for KubeOps Insight on EKS using IRSA to invoke selected Amazon Bedrock models.
+
+Parameters:
+  RoleName:
+    Type: String
+    Default: KubeOpsInsightBedrockIrsaRole
+    Description: Name for the IAM role to create.
+  OidcProviderArn:
+    Type: String
+    Description: EKS OIDC provider ARN, for example arn:aws:iam::123456789012:oidc-provider/oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE.
+  OidcProviderHostPath:
+    Type: String
+    Description: OIDC issuer host/path without https://, for example oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE.
+  Namespace:
+    Type: String
+    Default: kubeops-insight
+    Description: Kubernetes namespace where KubeOps Insight runs.
+  ServiceAccountName:
+    Type: String
+    Default: kubeops-insight-kubeops-insight
+    Description: Kubernetes ServiceAccount name used by the backend pod.
+  BedrockModelResourceArns:
+    Type: CommaDelimitedList
+    Default: arn:aws:bedrock:*::foundation-model/*,arn:aws:bedrock:*:*:inference-profile/*,arn:aws:bedrock:*:*:application-inference-profile/*
+    Description: Comma-separated Bedrock resource ARN scopes. Restrict these to approved model/profile ARNs where possible.
+
+Resources:
+  KubeOpsInsightBedrockIrsaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref RoleName
+      Description: Allows KubeOps Insight pods to invoke Amazon Bedrock through IRSA.
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref OidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                !Sub "${OidcProviderHostPath}:aud": sts.amazonaws.com
+                !Sub "${OidcProviderHostPath}:sub": !Sub "system:serviceaccount:${Namespace}:${ServiceAccountName}"
+      Policies:
+        - PolicyName: KubeOpsInsightBedrockInvoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InvokeBedrockModels
+                Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource: !Ref BedrockModelResourceArns
+
+Outputs:
+  RoleArn:
+    Description: Annotate the Kubernetes ServiceAccount with this role ARN.
+    Value: !GetAtt KubeOpsInsightBedrockIrsaRole.Arn
+  ServiceAccountAnnotationKey:
+    Description: Helm serviceAccount annotation key for IRSA.
+    Value: eks.amazonaws.com/role-arn
+  ServiceAccountAnnotationValue:
+    Description: Helm serviceAccount annotation value for IRSA.
+    Value: !GetAtt KubeOpsInsightBedrockIrsaRole.Arn

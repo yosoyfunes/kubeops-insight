@@ -1,0 +1,156 @@
+# Global image pull secrets applied to all workloads.
+global:
+  imagePullSecrets: []
+
+# Optionally create a namespace managed by this chart.
+namespace:
+  create: false
+  name: ""
+
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: yosoyfunes/kubeops-insight-frontend
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+backend:
+  replicaCount: 1
+  image:
+    repository: yosoyfunes/kubeops-insight-backend
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+llm:
+  provider: bedrock
+  cacheTtlSeconds: 120
+  maxFindings: 12
+  maxResources: 20
+  maxEvents: 10
+  maxToolsPerChat: 16
+  maxLogTailLines: 50
+  agent:
+    maxCycles: 5
+    timeoutSeconds: 30
+    maxInputTokens: 25000
+    maxOutputTokens: 2000
+    logs:
+      maxLines: 200
+      maxCharacters: 20000
+    cost:
+      enabled: true
+      maxEstimatedCostPerRequest: 0.10
+  bedrock:
+    region: us-east-1
+    modelId: us.anthropic.claude-haiku-4-5-20251001-v1:0
+    maxTokens: 1800
+    temperature: 0
+  openaiCompatible:
+    baseUrl: ""
+    model: ""
+    existingSecret: ""
+
+metrics:
+  provider: auto
+  metricsServer:
+    enabled: true
+    # Use an existing Metrics Server by default. Installing it as a dependency is intentionally off
+    # so this chart does not conflict with clusters where Metrics Server already exists.
+    install: false
+  prometheus:
+    enabled: false
+    url: ""
+    existingSecret: ""
+
+# Values passed to the optional metrics-server dependency when
+# `metrics.metricsServer.install=true`. Keep this disabled by default to avoid
+# colliding with clusters that already provide Metrics Server.
+metrics-server:
+  args: []
+
+rbac:
+  create: true
+  clusterWide: true
+
+actions:
+  enabled: false
+  allowedActions:
+    - restartDeployment
+    - scaleDeployment
+    - scaleStatefulSet
+    - deletePod
+
+auth:
+  enabled: true
+  username: admin
+  # Leave empty to generate and preserve a random initial password in the chart-managed Secret.
+  password: ""
+  # Leave empty to generate and preserve a random session signing secret in the chart-managed Secret.
+  sessionSecret: ""
+  existingSecret: ""
+  oidc:
+    enabled: false
+    issuerUrl: ""
+    clientId: ""
+    clientSecret: ""
+    existingSecret: ""
+    redirectUri: ""
+    scopes: "openid profile email groups"
+    usernameClaim: email
+    groupsClaim: groups
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kubeops-insight.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+kubernetes:
+  mode: auto
+  cacheTtlSeconds: 15
+
+networkPolicy:
+  enabled: true
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL

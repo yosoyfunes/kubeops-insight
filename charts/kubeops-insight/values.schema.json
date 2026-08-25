@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "actions": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "allowedActions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "llm": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" },
+        "cacheTtlSeconds": { "type": "integer" },
+        "maxFindings": { "type": "integer" },
+        "maxResources": { "type": "integer" },
+        "maxEvents": { "type": "integer" },
+        "maxToolsPerChat": { "type": "integer" },
+        "maxLogTailLines": { "type": "integer" },
+        "agent": {
+          "type": "object",
+          "properties": {
+            "maxCycles": { "type": "integer" },
+            "timeoutSeconds": { "type": "integer" },
+            "maxInputTokens": { "type": "integer" },
+            "maxOutputTokens": { "type": "integer" },
+            "logs": {
+              "type": "object",
+              "properties": {
+                "maxLines": { "type": "integer" },
+                "maxCharacters": { "type": "integer" }
+              }
+            },
+            "cost": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "maxEstimatedCostPerRequest": { "type": "number" }
+              }
+            }
+          }
+        },
+        "bedrock": {
+          "type": "object",
+          "properties": {
+            "region": { "type": "string" },
+            "modelId": { "type": "string" },
+            "maxTokens": { "type": "integer" },
+            "temperature": { "type": "number" }
+          }
+        },
+        "openaiCompatible": {
+          "type": "object",
+          "properties": {
+            "baseUrl": { "type": "string" },
+            "model": { "type": "string" },
+            "existingSecret": { "type": "string" }
+          }
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "sessionSecret": { "type": "string" },
+        "existingSecret": { "type": "string" },
+        "oidc": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "issuerUrl": { "type": "string" },
+            "clientId": { "type": "string" },
+            "clientSecret": { "type": "string" },
+            "existingSecret": { "type": "string" },
+            "redirectUri": { "type": "string" },
+            "scopes": { "type": "string" },
+            "usernameClaim": { "type": "string" },
+            "groupsClaim": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

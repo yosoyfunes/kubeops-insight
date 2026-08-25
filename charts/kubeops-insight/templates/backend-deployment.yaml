@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kubeops-insight.fullname" . }}-backend
+  labels:
+    {{- include "kubeops-insight.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "kubeops-insight.labels" . | nindent 8 }}
+        app.kubernetes.io/component: backend
+    spec:
+      serviceAccountName: {{ include "kubeops-insight.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: {{ include "kubeops-insight.fullname" . }}-config
+          {{- if or .Values.auth.enabled .Values.llm.openaiCompatible.existingSecret }}
+          env:
+            {{- if .Values.auth.enabled }}
+            - name: KOI_AUTH_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-auth" (include "kubeops-insight.fullname" .)) .Values.auth.existingSecret }}
+                  key: password
+            - name: KOI_AUTH_SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (printf "%s-auth" (include "kubeops-insight.fullname" .)) .Values.auth.existingSecret }}
+                  key: sessionSecret
+            {{- if .Values.auth.oidc.enabled }}
+            - name: KOI_AUTH_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (default (printf "%s-auth" (include "kubeops-insight.fullname" .)) .Values.auth.existingSecret) .Values.auth.oidc.existingSecret }}
+                  key: oidcClientSecret
+            {{- end }}
+            {{- end }}
+            {{- if .Values.llm.openaiCompatible.existingSecret }}
+            - name: KOI_OPENAI_COMPATIBLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.llm.openaiCompatible.existingSecret }}
+                  key: apiKey
+            {{- end }}
+          {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}

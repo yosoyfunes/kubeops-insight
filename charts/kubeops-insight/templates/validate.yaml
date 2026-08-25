@@ -1,0 +1,13 @@
+{{- $provider := required "llm.provider is required and must be bedrock or openai-compatible" .Values.llm.provider -}}
+{{- if not (has $provider (list "bedrock" "openai-compatible")) -}}
+{{- fail "llm.provider must be either bedrock or openai-compatible" -}}
+{{- end -}}
+{{- if eq $provider "bedrock" -}}
+{{- $_ := required "llm.bedrock.region is required when llm.provider=bedrock" .Values.llm.bedrock.region -}}
+{{- $_ := required "llm.bedrock.modelId is required when llm.provider=bedrock" .Values.llm.bedrock.modelId -}}
+{{- end -}}
+{{- if eq $provider "openai-compatible" -}}
+{{- $_ := required "llm.openaiCompatible.baseUrl is required when llm.provider=openai-compatible" .Values.llm.openaiCompatible.baseUrl -}}
+{{- $_ := required "llm.openaiCompatible.model is required when llm.provider=openai-compatible" .Values.llm.openaiCompatible.model -}}
+{{- $_ := required "llm.openaiCompatible.existingSecret is required when llm.provider=openai-compatible" .Values.llm.openaiCompatible.existingSecret -}}
+{{- end -}}

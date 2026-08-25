@@ -1,0 +1,23 @@
+apiVersion: v2
+name: kubeops-insight
+description: Lightweight Kubernetes dashboard with AI-assisted diagnostics
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://yosoyfunes.github.io/kubeops-insight
+sources:
+  - https://github.com/yosoyfunes/kubeops-insight
+keywords:
+  - kubernetes
+  - dashboard
+  - diagnostics
+  - sre
+  - ai
+  - bedrock
+maintainers:
+  - name: KubeOps Insight Maintainers
+dependencies:
+  - name: metrics-server
+    version: 3.13.0
+    repository: https://kubernetes-sigs.github.io/metrics-server/
+    condition: metrics.metricsServer.install
