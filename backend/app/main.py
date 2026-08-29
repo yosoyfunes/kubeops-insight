@@ -78,7 +78,7 @@ def _validate_auth_config(settings) -> None:
 def create_app() -> FastAPI:
     settings = get_settings()
     _validate_auth_config(settings)
-    app = FastAPI(title=settings.app_name, version="0.1.0")
+    app = FastAPI(title=settings.app_name, version="0.2.0")
 
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

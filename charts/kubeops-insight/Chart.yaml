@@ -2,8 +2,8 @@ apiVersion: v2
 name: kubeops-insight
 description: Lightweight Kubernetes dashboard with AI-assisted diagnostics
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
+version: 0.2.0
+appVersion: "0.2.0"
 home: https://yosoyfunes.github.io/kubeops-insight
 sources:
   - https://github.com/yosoyfunes/kubeops-insight
