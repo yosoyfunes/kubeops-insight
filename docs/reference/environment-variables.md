@@ -1,0 +1,69 @@
+# Environment Variables
+
+`backend/app/config/settings.py` is the authoritative source of backend environment variables.
+
+All backend settings use the `KOI_` prefix.
+
+## Auth
+
+- `KOI_AUTH_USERNAME`
+- `KOI_AUTH_PASSWORD`
+- `KOI_AUTH_SESSION_SECRET`
+- `KOI_AUTH_SESSION_TTL_SECONDS`
+- `KOI_AUTH_COOKIE_SECURE`
+- `KOI_AUTH_OIDC_ENABLED`
+- `KOI_AUTH_OIDC_ISSUER_URL`
+- `KOI_AUTH_OIDC_CLIENT_ID`
+- `KOI_AUTH_OIDC_CLIENT_SECRET`
+- `KOI_AUTH_OIDC_REDIRECT_URI`
+- `KOI_AUTH_OIDC_SCOPES`
+- `KOI_AUTH_OIDC_USERNAME_CLAIM`
+- `KOI_AUTH_OIDC_GROUPS_CLAIM`
+
+## Kubernetes and caching
+
+- `KOI_KUBERNETES_MODE`
+- `KOI_CACHE_TTL_SECONDS`
+
+## AI core
+
+- `KOI_LLM_PROVIDER`
+- `KOI_AI_CACHE_TTL_SECONDS`
+- `KOI_AI_MAX_FINDINGS`
+- `KOI_AI_MAX_RESOURCES`
+- `KOI_AI_MAX_EVENTS`
+- `KOI_AI_MAX_TOOLS_PER_CHAT`
+- `KOI_AI_MAX_LOG_TAIL_LINES`
+
+## Bedrock
+
+- `KOI_BEDROCK_REGION`
+- `KOI_BEDROCK_MODEL_ID`
+- `KOI_BEDROCK_MAX_TOKENS`
+- `KOI_BEDROCK_TEMPERATURE`
+- `KOI_AWS_PROFILE`
+
+## OpenAI-compatible
+
+- `KOI_OPENAI_COMPATIBLE_BASE_URL`
+- `KOI_OPENAI_COMPATIBLE_MODEL`
+- `KOI_OPENAI_COMPATIBLE_API_KEY`
+
+## Agent limits
+
+- `KOI_AGENT_MAX_CYCLES`
+- `KOI_AGENT_TIMEOUT_SECONDS`
+- `KOI_AGENT_MAX_INPUT_TOKENS`
+- `KOI_AGENT_MAX_OUTPUT_TOKENS`
+- `KOI_AGENT_LOG_MAX_LINES`
+- `KOI_AGENT_LOG_MAX_CHARACTERS`
+- `KOI_AGENT_COST_ENABLED`
+- `KOI_AGENT_MAX_ESTIMATED_COST_PER_REQUEST`
+
+## Frontend runtime wiring from Helm
+
+- `VITE_API_BASE_URL`
+
+## Local template note
+
+`backend/.env.example` is a starter template for local development. It is not the complete authority for every supported runtime variable.

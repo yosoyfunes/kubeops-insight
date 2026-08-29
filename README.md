@@ -97,7 +97,7 @@ Local login:
 Add the public Helm repository:
 
 ```bash
-helm repo add kubeops-insight https://yosoyfunes.github.io/kubeops-insight
+helm repo add kubeops-insight https://yosoyfunes.github.io/kubeops-insight/helm
 helm repo update
 ```
 

@@ -1,0 +1,82 @@
+site_name: KubeOps Insight
+site_description: Read-only Kubernetes operations with deterministic diagnostics and bounded AI investigation.
+site_url: https://yosoyfunes.github.io/kubeops-insight/
+repo_url: https://github.com/yosoyfunes/kubeops-insight
+repo_name: yosoyfunes/kubeops-insight
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+
+nav:
+  - Home:
+      - Overview: index.md
+      - Architecture Overview: architecture/system-architecture.md
+      - Security Model: security/security-model.md
+  - Getting Started:
+      - Quick Start: getting-started/quick-start.md
+      - Install with Helm: getting-started/helm-installation.md
+      - First Login: getting-started/first-login.md
+  - User Guide:
+      - Overview Dashboard: user-guide/overview-dashboard.md
+      - Diagnostics and Findings: user-guide/diagnostics-and-findings.md
+      - AI Investigation: user-guide/ai-investigation.md
+  - Operator Guide:
+      - Authentication: operator-guide/authentication.md
+      - AI Providers: operator-guide/ai-providers.md
+      - Metrics: operator-guide/metrics.md
+      - Troubleshooting: operator-guide/troubleshooting.md
+  - Reference:
+      - API: reference/api.md
+      - Helm Values: reference/helm-values.md
+      - Environment Variables: reference/environment-variables.md
+  - Developer Guide:
+      - Local Development: developer-guide/local-development.md

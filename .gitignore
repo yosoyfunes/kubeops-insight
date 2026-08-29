@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.docs-venv/
+site-dist/
 backend/.env
 backend/*.egg-info/
 frontend/node_modules/

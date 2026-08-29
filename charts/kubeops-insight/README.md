@@ -9,7 +9,7 @@ Bedrock chat uses a Strands diagnostic agent. The agent chooses bounded read-onl
 Add the Helm repository:
 
 ```bash
-helm repo add kubeops-insight https://yosoyfunes.github.io/kubeops-insight
+helm repo add kubeops-insight https://yosoyfunes.github.io/kubeops-insight/helm
 helm repo update
 ```
 
