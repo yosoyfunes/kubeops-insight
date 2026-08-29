@@ -23,14 +23,20 @@ def test_cluster_summary_uses_live_kubernetes(monkeypatch) -> None:
         return {"mode": "live", "cluster": {"status": "healthy"}}
 
     monkeypatch.setattr("app.api.routes.kubernetes_service.get_cluster_summary", fake_summary)
+    settings = Settings(auth_password="secret", auth_session_secret="test-secret")
+    monkeypatch.setattr("app.main.get_settings", lambda: settings)
+    monkeypatch.setattr("app.api.routes.get_settings", lambda: settings)
 
-    response = client.get("/api/v1/cluster/summary")
+    auth_client = TestClient(app)
+    login = auth_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    assert login.status_code == 200
+    response = auth_client.get("/api/v1/cluster/summary")
     assert response.status_code == 200
     assert response.json()["mode"] == "live"
 
 
 def test_auth_blocks_protected_api_when_enabled(monkeypatch) -> None:
-    settings = Settings(auth_enabled=True, auth_session_secret="test-secret")
+    settings = Settings(auth_password="secret", auth_session_secret="test-secret")
     monkeypatch.setattr("app.main.get_settings", lambda: settings)
     auth_client = TestClient(app)
     response = auth_client.get("/api/v1/cluster/summary")
@@ -39,7 +45,6 @@ def test_auth_blocks_protected_api_when_enabled(monkeypatch) -> None:
 
 def test_auth_login_allows_protected_api(monkeypatch) -> None:
     settings = Settings(
-        auth_enabled=True,
         auth_username="admin",
         auth_password="secret",
         auth_session_secret="test-secret",
@@ -58,7 +63,7 @@ def test_auth_login_allows_protected_api(monkeypatch) -> None:
 
 
 def test_auth_me_reports_oidc_enabled(monkeypatch) -> None:
-    settings = Settings(auth_enabled=True, auth_oidc_enabled=True, auth_session_secret="test-secret")
+    settings = Settings(auth_password="secret", auth_oidc_enabled=True, auth_session_secret="test-secret")
     monkeypatch.setattr("app.api.routes.get_settings", lambda: settings)
     response = client.get("/api/v1/auth/me")
     assert response.status_code == 200
@@ -69,7 +74,7 @@ def test_auth_me_reports_oidc_enabled(monkeypatch) -> None:
 
 def test_oidc_login_redirects_to_provider(monkeypatch) -> None:
     settings = Settings(
-        auth_enabled=True,
+        auth_password="secret",
         auth_oidc_enabled=True,
         auth_oidc_issuer_url="https://example.okta.com/oauth2/default",
         auth_oidc_client_id="client-id",

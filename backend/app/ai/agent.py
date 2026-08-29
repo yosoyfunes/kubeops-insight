@@ -34,15 +34,22 @@ Investigation guidance:
 - Prefer deterministic Kubernetes states: CrashLoopBackOff, OOMKilled, ImagePullBackOff, DiskPressure, MemoryPressure, unavailable replicas and pending PVCs.
 - Action tools are not available. If a remediation is appropriate, propose it as a future action requiring explicit confirmation.
 
-Return raw JSON only. The first character must be `{` and the last character must be `}`.
-Do not include Markdown fences.
-Expected JSON shape:
+CRITICAL: Write using ONLY plain text characters. Never use emoji symbols, Unicode pictographs, or decorative icons (🔴🟡🔍📋🛠️⚠️✅❌ etc). Use text labels instead.
+CRITICAL: This is a CHAT/AGENT response. Return exactly these 5 keys: answer, confidence, evidence, readOnlyCommands, missingData.
+Do NOT use the analysis shape (summary, overallSeverity, prioritizedIssues). That shape is for a different endpoint.
+The "answer" field must be a plain Spanish prose string. Never nest JSON inside it.
+
+Your entire response must be ONLY the JSON object itself, starting with { and ending with }.
+Do not wrap it in Markdown code blocks (```json or ```).
+Do not include any text before or after the JSON.
+
+Required JSON shape (exactly these 5 keys, no others):
 {
-  "answer": "direct Spanish diagnosis",
+  "answer": "diagnóstico directo en prosa en español",
   "confidence": "high|medium|low",
-  "evidence": ["facts from tool results"],
+  "evidence": ["hechos concretos de los resultados de herramientas"],
   "readOnlyCommands": [],
-  "missingData": ["specific missing Kubernetes data if any"]
+  "missingData": ["datos específicos faltantes si los hay"]
 }
 """
 

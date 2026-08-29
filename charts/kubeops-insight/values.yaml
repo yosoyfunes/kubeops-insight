@@ -102,7 +102,6 @@ actions:
     - deletePod
 
 auth:
-  enabled: true
   username: admin
   # Leave empty to generate and preserve a random initial password in the chart-managed Secret.
   password: ""

@@ -5,6 +5,7 @@ from app.ai.cache import ai_response_cache, cache_key
 from app.ai.evidence import compile_evidence_pack
 from app.ai.prompt import build_analysis_prompt, build_chat_prompt
 from app.ai.provider import LLMProviderError, get_llm_provider
+from app.ai.text_cleanup import strip_emojis_recursive
 from app.ai.tools import run_diagnostic_tools
 from app.config.settings import get_settings
 from app.kubernetes import service as kubernetes_service
@@ -79,20 +80,22 @@ def _provider_status(settings: Any) -> str:
 
 def _normalize_chat_answer(answer: dict[str, Any]) -> dict[str, Any]:
     if isinstance(answer.get("answer"), str):
-        return {
+        normalized = {
             **answer,
             "answer": _clean_answer_text(answer.get("answer")),
             "evidence": _clean_human_list(answer.get("evidence")),
             "readOnlyCommands": [],
             "missingData": _clean_human_list(answer.get("missingData")),
         }
-    return {
-        "answer": _clean_answer_text(answer.get("summary") or "No pude generar una respuesta conversacional."),
-        "confidence": str(answer.get("confidence") or "low"),
-        "evidence": _clean_human_list(answer.get("evidence")),
-        "readOnlyCommands": [],
-        "missingData": _clean_human_list(answer.get("missingData")),
-    }
+    else:
+        normalized = {
+            "answer": _clean_answer_text(answer.get("summary") or "No pude generar una respuesta conversacional."),
+            "confidence": str(answer.get("confidence") or "low"),
+            "evidence": _clean_human_list(answer.get("evidence")),
+            "readOnlyCommands": [],
+            "missingData": _clean_human_list(answer.get("missingData")),
+        }
+    return strip_emojis_recursive(normalized)
 
 
 def _with_evidence_coverage(answer: dict[str, Any], evidence_pack: dict[str, Any]) -> dict[str, Any]:
@@ -126,12 +129,14 @@ def _normalize_analysis(analysis: dict[str, Any]) -> dict[str, Any]:
                 "readOnlyCommands": [],
             }
         )
-    return {
+    normalized = {
         **analysis,
         "prioritizedIssues": issues,
         "missingData": _clean_human_list(analysis.get("missingData")),
         "safeToIgnore": _clean_human_list(analysis.get("safeToIgnore")),
     }
+    # Strip emojis from all text fields
+    return strip_emojis_recursive(normalized)
 
 
 def _filter_findings(findings: list[dict[str, Any]], namespace: str | None = None) -> list[dict[str, Any]]:

@@ -32,7 +32,7 @@ client = TestClient(app)
 def test_prompt_requires_json_only_output() -> None:
     prompt = build_analysis_prompt({"summary": {"cluster": {"status": "healthy"}}})
 
-    assert "Return raw JSON only" in prompt
+    assert "ONLY the JSON object itself" in prompt
     assert "Do not invent resources" in prompt
     assert "Cluster snapshot" in prompt
 

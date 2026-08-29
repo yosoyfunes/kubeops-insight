@@ -1,10 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from app.api.routes import router
+from app.api.routes import limiter, router
 from app.auth import require_user
 from app.config.settings import get_settings
 
@@ -43,7 +45,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             f"{settings.api_prefix}/auth/oidc/login",
             f"{settings.api_prefix}/auth/oidc/callback",
         }
-        if settings.auth_enabled and request.url.path.startswith(protected_prefixes) and request.url.path not in public_paths:
+        if request.url.path.startswith(protected_prefixes) and request.url.path not in public_paths:
             try:
                 require_user(request, settings)
             except HTTPException:
@@ -51,9 +53,35 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+def _validate_auth_config(settings) -> None:
+    """Validate auth configuration at startup.
+
+    Password and session secret are required.
+    These must be provided via environment variables or .env file - never
+    hardcoded. This validation runs once at startup so misconfiguration
+    fails early with a clear message, not silently at login time.
+    """
+    missing = []
+    if not settings.auth_password:
+        missing.append("KOI_AUTH_PASSWORD")
+    if not settings.auth_session_secret:
+        missing.append("KOI_AUTH_SESSION_SECRET")
+    if missing:
+        msg = (
+            f"Auth is enabled but required secrets are not configured: {', '.join(missing)}. "
+            "Set these as environment variables or in backend/.env. "
+            "See backend/.env.example for reference."
+        )
+        raise RuntimeError(msg)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
+    _validate_auth_config(settings)
     app = FastAPI(title=settings.app_name, version="0.1.0")
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     app.add_middleware(
         CORSMiddleware,

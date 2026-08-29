@@ -32,10 +32,9 @@ class Settings(BaseSettings):
     agent_log_max_characters: int = 20_000
     agent_cost_enabled: bool = True
     agent_max_estimated_cost_per_request: float = 0.10
-    auth_enabled: bool = False
     auth_username: str = "admin"
-    auth_password: str = "admin"
-    auth_session_secret: str = "change-me"
+    auth_password: str | None = None
+    auth_session_secret: str | None = None
     auth_session_ttl_seconds: int = 28_800
     auth_oidc_enabled: bool = False
     auth_oidc_issuer_url: str | None = None

@@ -121,14 +121,51 @@ def create_bedrock_client(settings: Settings) -> Any:
 
 def parse_json_response(response_text: str) -> dict[str, Any]:
     stripped = response_text.strip()
+
+    # Remove Markdown code blocks if present
+    if stripped.startswith("```"):
+        first_newline = stripped.find("\n")
+        if first_newline != -1:
+            closing_fence = stripped.find("```", first_newline)
+            if closing_fence != -1:
+                stripped = stripped[first_newline + 1:closing_fence].strip()
+
+    # Try parsing as-is first
     try:
-        return json.loads(stripped)
+        parsed = json.loads(stripped)
+        # Check if this is a wrapper with nested JSON string in "summary"
+        if isinstance(parsed, dict) and "summary" in parsed:
+            summary_val = parsed.get("summary", "")
+            if isinstance(summary_val, str) and summary_val.strip().startswith("{"):
+                try:
+                    # Try to parse the summary as nested JSON
+                    nested = json.loads(summary_val)
+                    if isinstance(nested, dict) and "summary" in nested:
+                        # The real JSON was nested, return it
+                        return nested
+                except json.JSONDecodeError:
+                    pass
+        return parsed
     except json.JSONDecodeError:
         pass
 
+    # Try finding and extracting JSON object
     start = stripped.find("{")
     if start == -1:
         return _structured_text_response(stripped)
+
+    # Find matching closing brace
+    end = stripped.rfind("}")
+    if end == -1 or end <= start:
+        return _structured_text_response(stripped)
+
+    # Try parsing the extracted JSON
+    try:
+        return json.loads(stripped[start:end + 1])
+    except json.JSONDecodeError:
+        pass
+
+    # Try with JSONDecoder for partial parsing
     decoder = json.JSONDecoder()
     try:
         parsed, _ = decoder.raw_decode(stripped[start:])

@@ -30,9 +30,7 @@ spec:
           envFrom:
             - configMapRef:
                 name: {{ include "kubeops-insight.fullname" . }}-config
-          {{- if or .Values.auth.enabled .Values.llm.openaiCompatible.existingSecret }}
           env:
-            {{- if .Values.auth.enabled }}
             - name: KOI_AUTH_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -50,7 +48,6 @@ spec:
                   name: {{ default (default (printf "%s-auth" (include "kubeops-insight.fullname" .)) .Values.auth.existingSecret) .Values.auth.oidc.existingSecret }}
                   key: oidcClientSecret
             {{- end }}
-            {{- end }}
             {{- if .Values.llm.openaiCompatible.existingSecret }}
             - name: KOI_OPENAI_COMPATIBLE_API_KEY
               valueFrom:
@@ -58,7 +55,6 @@ spec:
                   name: {{ .Values.llm.openaiCompatible.existingSecret }}
                   key: apiKey
             {{- end }}
-          {{- end }}
           livenessProbe:
             httpGet:
               path: /health

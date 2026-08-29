@@ -1,9 +1,49 @@
 import { useEffect, useState } from 'react';
+import { Markdown } from './markdown';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? '/api/v1';
 
+class AuthRequiredError extends Error {}
+
+type DashboardWarning = {
+  label: string;
+  message: string;
+};
+
+function dashboardFetchError(label: string, response: Response): Error {
+  if (response.status === 530) {
+    return new Error(`${label} returned 530. Cloudflare Tunnel could not reach the local frontend/backend origin.`);
+  }
+  return new Error(`${label} returned ${response.status}`);
+}
+
+async function readDashboardResponse<T>(label: string, response: Response): Promise<T> {
+  if (response.status === 401) {
+    throw new AuthRequiredError('Authentication required');
+  }
+  if (!response.ok) {
+    throw dashboardFetchError(label, response);
+  }
+  return await response.json() as T;
+}
+
+async function readOptionalDashboardResponse<T>(
+  label: string,
+  request: Promise<Response>,
+  fallback: T,
+  warnings: DashboardWarning[],
+): Promise<T> {
+  try {
+    return await readDashboardResponse(label, await request);
+  } catch (err) {
+    if (err instanceof AuthRequiredError) throw err;
+    warnings.push({ label, message: err instanceof Error ? err.message : `${label} could not be loaded` });
+    return fallback;
+  }
+}
+
 type ClusterSummary = {
-  mode: 'demo' | 'live' | 'empty';
+  mode: 'live' | 'empty';
   timestamp?: string;
   source?: string;
   cluster: {
@@ -87,6 +127,7 @@ type MetricsSummary = {
   provider: string;
   status: 'available' | 'unavailable';
   reason?: string;
+  details?: string;
   topCpuPods?: Array<{ name: string; namespace: string; cpuMillicores: number; memoryMiB: number }>;
   topMemoryPods?: Array<{ name: string; namespace: string; cpuMillicores: number; memoryMiB: number }>;
 };
@@ -160,9 +201,9 @@ type AiStatus = {
 
 type SeverityFilter = 'all' | Finding['severity'];
 type Theme = 'dark' | 'light';
+type DashboardTab = 'overview' | 'workloads' | 'diagnostics' | 'events' | 'ai';
 
 type AuthState = {
-  enabled: boolean;
   authenticated: boolean;
   username: string | null;
   oidcEnabled: boolean;
@@ -216,17 +257,15 @@ export function App() {
   const [chatError, setChatError] = useState<string | null>(null);
   const [refreshCount, setRefreshCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState('analysis');
+  const [dashboardWarnings, setDashboardWarnings] = useState<DashboardWarning[]>([]);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'dark';
-    const storedTheme = window.localStorage.getItem('koi-theme');
-    if (storedTheme === 'light' || storedTheme === 'dark') return storedTheme;
     return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   });
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
-    window.localStorage.setItem('koi-theme', theme);
   }, [theme]);
 
   useEffect(() => {
@@ -237,30 +276,12 @@ export function App() {
           setAuth(normalizeAuthState((await response.json()) as AuthState));
           return;
         }
-        setAuth({ enabled: true, authenticated: false, username: null, oidcEnabled: false, localLoginEnabled: true });
+        setAuth({ authenticated: false, username: null, oidcEnabled: false, localLoginEnabled: true });
       } catch {
-        setAuth({ enabled: true, authenticated: false, username: null, oidcEnabled: false, localLoginEnabled: true });
+        setAuth({ authenticated: false, username: null, oidcEnabled: false, localLoginEnabled: true });
       }
     }
     void loadAuth();
-  }, []);
-
-  useEffect(() => {
-    const sectionIds = ['analysis', 'dashboard', 'workloads', 'findings', 'events'];
-    function updateActiveSection() {
-      const current = sectionIds
-        .map((id) => ({ id, top: document.getElementById(id)?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY }))
-        .filter((section) => section.top <= 120)
-        .at(-1);
-      setActiveSection(current?.id ?? sectionIds[0]);
-    }
-    updateActiveSection();
-    window.addEventListener('scroll', updateActiveSection, { passive: true });
-    window.addEventListener('resize', updateActiveSection);
-    return () => {
-      window.removeEventListener('scroll', updateActiveSection);
-      window.removeEventListener('resize', updateActiveSection);
-    };
   }, []);
 
   useEffect(() => {
@@ -268,82 +289,60 @@ export function App() {
 
     async function loadDashboard() {
       if (!auth) return;
-      if (auth?.enabled && !auth.authenticated) return;
+      if (!auth.authenticated) return;
       try {
         const namespaceQuery = selectedNamespace === 'all' ? '' : `?namespace=${selectedNamespace}`;
-        const [
-          summaryResponse,
-          findingsResponse,
-          namespacesResponse,
-          podsResponse,
-          deploymentsResponse,
-          servicesResponse,
-          eventsResponse,
-          workloadsResponse,
-          jobsResponse,
-          pvcsResponse,
-          ingressesResponse,
-          metricsResponse,
-          aiStatusResponse,
-        ] = await Promise.all([
-          fetch(`${apiBaseUrl}/cluster/summary`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/findings`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/namespaces`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/pods${namespaceQuery}`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/deployments${namespaceQuery}`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/services${namespaceQuery}`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/events${namespaceQuery}${namespaceQuery ? '&' : '?'}limit=20&minutes=60`, {
-            signal: controller.signal,
-            credentials: 'include',
-          }),
-          fetch(`${apiBaseUrl}/workloads${namespaceQuery}`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/jobs${namespaceQuery}`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/pvcs${namespaceQuery}`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/ingresses${namespaceQuery}`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/metrics/summary`, { signal: controller.signal, credentials: 'include' }),
-          fetch(`${apiBaseUrl}/ai/status`, { signal: controller.signal, credentials: 'include' }),
+        const fetchOptions = { signal: controller.signal, credentials: 'include' as const };
+        const warnings: DashboardWarning[] = [];
+        const [summaryData, findingsData, namespacesData, podsData, deploymentsData, servicesData] = await Promise.all([
+          fetch(`${apiBaseUrl}/cluster/summary`, fetchOptions).then((response) => readDashboardResponse<ClusterSummary>('Cluster summary', response)),
+          fetch(`${apiBaseUrl}/findings`, fetchOptions).then((response) => readDashboardResponse<Finding[]>('Findings', response)),
+          fetch(`${apiBaseUrl}/namespaces`, fetchOptions).then((response) => readDashboardResponse<Namespace[]>('Namespaces', response)),
+          fetch(`${apiBaseUrl}/pods${namespaceQuery}`, fetchOptions).then((response) => readDashboardResponse<Pod[]>('Pods', response)),
+          fetch(`${apiBaseUrl}/deployments${namespaceQuery}`, fetchOptions).then((response) => readDashboardResponse<Deployment[]>('Deployments', response)),
+          fetch(`${apiBaseUrl}/services${namespaceQuery}`, fetchOptions).then((response) => readDashboardResponse<Service[]>('Services', response)),
+        ]);
+        const [eventsData, workloadsData, jobsData, pvcsData, ingressesData, metricsData, aiStatusData] = await Promise.all([
+          readOptionalDashboardResponse<KubernetesEvent[]>(
+            'Events',
+            fetch(`${apiBaseUrl}/events${namespaceQuery}${namespaceQuery ? '&' : '?'}limit=20&minutes=60`, fetchOptions),
+            [],
+            warnings,
+          ),
+          readOptionalDashboardResponse<Workloads>('Workloads', fetch(`${apiBaseUrl}/workloads${namespaceQuery}`, fetchOptions), { statefulSets: [], daemonSets: [] }, warnings),
+          readOptionalDashboardResponse<NamedResource[]>('Jobs', fetch(`${apiBaseUrl}/jobs${namespaceQuery}`, fetchOptions), [], warnings),
+          readOptionalDashboardResponse<NamedResource[]>('PVCs', fetch(`${apiBaseUrl}/pvcs${namespaceQuery}`, fetchOptions), [], warnings),
+          readOptionalDashboardResponse<NamedResource[]>('Ingresses', fetch(`${apiBaseUrl}/ingresses${namespaceQuery}`, fetchOptions), [], warnings),
+          readOptionalDashboardResponse<MetricsSummary>(
+            'Metrics summary',
+            fetch(`${apiBaseUrl}/metrics/summary`, fetchOptions),
+            { provider: 'metrics-server', status: 'unavailable', reason: 'Metrics summary could not be loaded.' },
+            warnings,
+          ),
+          readOptionalDashboardResponse<AiStatus>('AI status', fetch(`${apiBaseUrl}/ai/status`, fetchOptions), { provider: 'unknown' }, warnings),
         ]);
 
-        for (const response of [
-          summaryResponse,
-          findingsResponse,
-          namespacesResponse,
-          podsResponse,
-          deploymentsResponse,
-          servicesResponse,
-          eventsResponse,
-          workloadsResponse,
-          jobsResponse,
-          pvcsResponse,
-          ingressesResponse,
-          metricsResponse,
-          aiStatusResponse,
-        ]) {
-          if (response.status === 401) {
-            setAuth({ enabled: true, authenticated: false, username: null, oidcEnabled: auth?.oidcEnabled ?? false, localLoginEnabled: auth?.localLoginEnabled ?? true });
-            return;
-          }
-          if (!response.ok) {
-            throw new Error(`${response.url} returned ${response.status}`);
-          }
-        }
-
-        setSummary((await summaryResponse.json()) as ClusterSummary);
-        setFindings((await findingsResponse.json()) as Finding[]);
-        setNamespaces((await namespacesResponse.json()) as Namespace[]);
-        setPods((await podsResponse.json()) as Pod[]);
-        setDeployments((await deploymentsResponse.json()) as Deployment[]);
-        setServices((await servicesResponse.json()) as Service[]);
-        setEvents((await eventsResponse.json()) as KubernetesEvent[]);
-        setWorkloads((await workloadsResponse.json()) as Workloads);
-        setJobs((await jobsResponse.json()) as NamedResource[]);
-        setPvcs((await pvcsResponse.json()) as NamedResource[]);
-        setIngresses((await ingressesResponse.json()) as NamedResource[]);
-        setMetrics((await metricsResponse.json()) as MetricsSummary);
-        setAiStatus((await aiStatusResponse.json()) as AiStatus);
+        setSummary(summaryData);
+        setFindings(findingsData);
+        setNamespaces(namespacesData);
+        setPods(podsData);
+        setDeployments(deploymentsData);
+        setServices(servicesData);
+        setEvents(eventsData);
+        setWorkloads(workloadsData);
+        setJobs(jobsData);
+        setPvcs(pvcsData);
+        setIngresses(ingressesData);
+        setMetrics(metricsData);
+        setAiStatus(aiStatusData);
+        setDashboardWarnings(warnings);
         setError(null);
       } catch (err) {
         if (!controller.signal.aborted) {
+          if (err instanceof AuthRequiredError) {
+            setAuth({ authenticated: false, username: null, oidcEnabled: auth?.oidcEnabled ?? false, localLoginEnabled: auth?.localLoginEnabled ?? true });
+            return;
+          }
           setError(err instanceof Error ? err.message : 'Unable to load dashboard data');
         }
       }
@@ -373,7 +372,7 @@ export function App() {
         throw new Error(errorPayload?.detail ?? 'Usuario o contraseña inválidos');
       }
       const nextAuth = (await response.json()) as { authenticated: boolean; username: string };
-      setAuth({ enabled: true, authenticated: nextAuth.authenticated, username: nextAuth.username, oidcEnabled: auth?.oidcEnabled ?? false, localLoginEnabled: auth?.localLoginEnabled ?? true });
+      setAuth({ authenticated: nextAuth.authenticated, username: nextAuth.username, oidcEnabled: auth?.oidcEnabled ?? false, localLoginEnabled: auth?.localLoginEnabled ?? true });
       setLoginPassword('');
       setRefreshCount((current) => current + 1);
     } catch (err) {
@@ -392,11 +391,12 @@ export function App() {
     window.location.href = `${apiBaseUrl}/auth/oidc/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
   }
 
-  const visibleFindings = findings.filter((finding) => {
-    const matchesNamespace = selectedNamespace === 'all' || finding.namespace === selectedNamespace;
-    const matchesSeverity = severityFilter === 'all' || finding.severity === severityFilter;
-    return matchesNamespace && matchesSeverity;
-  });
+  const scopeFindings = findings.filter((finding) => (
+    selectedNamespace === 'all' || finding.namespace === selectedNamespace
+  ));
+  const visibleFindings = scopeFindings.filter((finding) => (
+    severityFilter === 'all' || finding.severity === severityFilter
+  ));
 
   async function analyzeWithAi() {
     setAiLoading(true);
@@ -409,7 +409,7 @@ export function App() {
       }
       setAiAnalysis((await response.json()) as AiAnalyzeResponse);
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : 'Unable to run AI analysis');
+      setAiError(err instanceof Error ? err.message : 'No se pudo ejecutar el análisis AI');
     } finally {
       setAiLoading(false);
     }
@@ -476,8 +476,8 @@ export function App() {
         },
       ]
     : [];
-  const criticalFindings = visibleFindings.filter((finding) => finding.severity === 'critical').length;
-  const warningFindings = visibleFindings.filter((finding) => finding.severity === 'warning').length;
+  const criticalFindings = scopeFindings.filter((finding) => finding.severity === 'critical').length;
+  const warningFindings = scopeFindings.filter((finding) => finding.severity === 'warning').length;
   const impactedWorkloads = pods.filter((pod) => statusClass(pod) !== 'good').length + deployments.filter((deployment) => !deployment.available).length;
   const warningEvents = events.filter((event) => event.type === 'Warning');
   const activeProvider = chatResponse?.provider ?? aiAnalysis?.provider ?? aiStatus?.provider ?? 'bedrock';
@@ -485,6 +485,14 @@ export function App() {
   const chatAgentTools = chatResponse?.agentMetrics?.toolsExecuted.length
     ? chatResponse.agentMetrics.toolsExecuted
     : chatResponse?.toolsUsed.map((tool) => tool.tool) ?? [];
+  const postureTone = criticalFindings > 0 ? 'bad' : impactedWorkloads > 0 || warningFindings > 0 || warningEvents.length > 0 ? 'warn' : 'good';
+  const postureLabel = criticalFindings > 0 ? 'Incident posture' : postureTone === 'warn' ? 'Degraded posture' : 'Nominal posture';
+  const evidenceCounters = [
+    { label: 'Findings', value: visibleFindings.length, tone: visibleFindings.length > 0 ? 'warn' : 'good' },
+    { label: 'Critical', value: criticalFindings, tone: criticalFindings > 0 ? 'bad' : 'good' },
+    { label: 'Impacted', value: impactedWorkloads, tone: impactedWorkloads > 0 ? 'warn' : 'good' },
+    { label: 'Warnings', value: warningEvents.length, tone: warningEvents.length > 0 ? 'warn' : 'good' },
+  ];
 
   if (!auth) {
     return (
@@ -508,7 +516,7 @@ export function App() {
     );
   }
 
-  if (auth.enabled && !auth.authenticated) {
+  if (!auth.authenticated) {
     return (
       <main className="login-page">
         <section className="login-brand-panel">
@@ -520,7 +528,13 @@ export function App() {
           <p>Accedé a diagnósticos, señales operacionales y análisis read-only con una sesión autenticada.</p>
         </section>
         <section className="login-form-panel">
-          <div className="login-card">
+          <form
+            className="login-card"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void login();
+            }}
+          >
             <p className="eyebrow">Control de acceso</p>
             <h1>Acceso requerido</h1>
             <p>{auth.oidcEnabled ? 'Ingresá con tu proveedor de identidad para continuar.' : 'Ingresá con tus credenciales para continuar.'}</p>
@@ -532,19 +546,19 @@ export function App() {
                 {auth.oidcEnabled ? <div className="login-divider">o usar credenciales locales</div> : null}
                 <label>
                   Usuario
-                  <input value={loginUsername} onChange={(event) => setLoginUsername(event.target.value)} autoComplete="username" />
+                  <input value={loginUsername} onChange={(event) => setLoginUsername(event.target.value)} autoComplete="username" required />
                 </label>
                 <label>
                   Contraseña
-                  <input value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} type="password" autoComplete="current-password" />
+                  <input value={loginPassword} onChange={(event) => setLoginPassword(event.target.value)} type="password" autoComplete="current-password" required />
                 </label>
-                {loginError ? <div className="alert">{loginError}</div> : null}
-                <button type="button" onClick={() => void login()} disabled={loginLoading}>
+                {loginError ? <div className="alert" role="alert">{loginError}</div> : null}
+                <button type="submit" disabled={loginLoading}>
                   {loginLoading ? 'Ingresando...' : 'Ingresar'}
                 </button>
               </>
             ) : null}
-          </div>
+          </form>
         </section>
       </main>
     );
@@ -557,14 +571,14 @@ export function App() {
           <span>KOI</span>
           <strong>KubeOps Insight</strong>
         </div>
-        <nav>
-          <a className={activeSection === 'analysis' ? 'active' : ''} href="#analysis" onClick={() => setActiveSection('analysis')}>Analysis</a>
-          <a className={activeSection === 'dashboard' ? 'active' : ''} href="#dashboard" onClick={() => setActiveSection('dashboard')}>Signals</a>
-          <a className={activeSection === 'workloads' ? 'active' : ''} href="#workloads" onClick={() => setActiveSection('workloads')}>Workloads</a>
-          <a className={activeSection === 'findings' ? 'active' : ''} href="#findings" onClick={() => setActiveSection('findings')}>Diagnostics</a>
-          <a className={activeSection === 'events' ? 'active' : ''} href="#events" onClick={() => setActiveSection('events')}>Events</a>
+        <nav aria-label="Dashboard tabs">
+          <button type="button" className={activeTab === 'overview' ? 'active' : ''} aria-current={activeTab === 'overview' ? 'page' : undefined} onClick={() => setActiveTab('overview')}><span>Ov</span> Overview</button>
+          <button type="button" className={activeTab === 'workloads' ? 'active' : ''} aria-current={activeTab === 'workloads' ? 'page' : undefined} onClick={() => setActiveTab('workloads')}><span>Wk</span> Workloads</button>
+          <button type="button" className={activeTab === 'diagnostics' ? 'active' : ''} aria-current={activeTab === 'diagnostics' ? 'page' : undefined} onClick={() => setActiveTab('diagnostics')}><span>Dx</span> Diagnostics</button>
+          <button type="button" className={activeTab === 'events' ? 'active' : ''} aria-current={activeTab === 'events' ? 'page' : undefined} onClick={() => setActiveTab('events')}><span>Ev</span> Events</button>
+          <button type="button" className={activeTab === 'ai' ? 'active' : ''} aria-current={activeTab === 'ai' ? 'page' : undefined} onClick={() => setActiveTab('ai')}><span>AI</span> Investigation</button>
         </nav>
-        {auth?.enabled && auth.authenticated ? (
+        {auth.authenticated ? (
           <div className="sidebar-session">
             <span>Signed in as</span>
             <strong>{auth.username}</strong>
@@ -576,77 +590,126 @@ export function App() {
       </aside>
 
       <section className="content">
-        <header className="header">
+        <header className="topbar">
           <div>
-            <p className="eyebrow">{summary ? `${summary.mode} cluster intelligence` : 'Loading cluster intelligence'}</p>
-            <h1>Operations Command Center</h1>
-            <p className="header-copy">Operational analysis grounded in live Kubernetes API evidence and deterministic diagnostics.</p>
+            <p className="eyebrow">KubeOps Insight</p>
+            <h1>{activeTab === 'ai' ? 'AI Investigation' : activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h1>
+            <p className="header-copy">Live Kubernetes evidence, deterministic diagnostics, and bounded read-only AI investigation.</p>
           </div>
-          <div className="header-status">
-            <span>API</span>
-            <strong>{apiBaseUrl}</strong>
-          </div>
+          <section className="toolbar command-toolbar" aria-label="Dashboard filters">
+            <label>
+              Scope
+              <select value={selectedNamespace} onChange={(event) => setSelectedNamespace(event.target.value)}>
+                <option value="all">All namespaces</option>
+                {namespaces.map((namespace) => (
+                  <option value={namespace.name} key={namespace.name}>{namespace.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Severity
+              <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}>
+                <option value="all">All severities</option>
+                <option value="critical">Critical</option>
+                <option value="warning">Warning</option>
+                <option value="info">Info</option>
+              </select>
+            </label>
+            <button type="button" onClick={() => setRefreshCount((current) => current + 1)}>
+              Refresh
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              aria-pressed={theme === 'light'}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
+            >
+              {theme === 'dark' ? 'Light' : 'Dark'}
+            </button>
+          </section>
         </header>
 
-        <section className="toolbar command-toolbar" aria-label="Dashboard filters">
-          <label>
-            Scope
-            <select value={selectedNamespace} onChange={(event) => setSelectedNamespace(event.target.value)}>
-              <option value="all">All namespaces</option>
-              {namespaces.map((namespace) => (
-                <option value={namespace.name} key={namespace.name}>{namespace.name}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Severity
-            <select value={severityFilter} onChange={(event) => setSeverityFilter(event.target.value as SeverityFilter)}>
-              <option value="all">All severities</option>
-              <option value="critical">Critical</option>
-              <option value="warning">Warning</option>
-              <option value="info">Info</option>
-            </select>
-          </label>
-          <button type="button" onClick={() => setRefreshCount((current) => current + 1)}>
-            Refresh
-          </button>
-          <button type="button" className="secondary-button" onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}>
-            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </button>
-        </section>
-
-        {error ? <div className="alert">Could not load dashboard data: {error}</div> : null}
+        {error ? <div className="alert" role="alert">Could not load dashboard data: {error}</div> : null}
+        {!error && dashboardWarnings.length > 0 ? (
+          <div className="alert warning-alert" role="status" aria-live="polite">
+            Partial data loaded: {dashboardWarnings.map((warning) => `${warning.label}: ${warning.message}`).join(' · ')}
+          </div>
+        ) : null}
         {!summary && !error ? <div className="panel state-panel">Loading cluster intelligence...</div> : null}
 
-        {summary ? (
-          <section className="executive-strip" aria-label="Executive signals">
-            <article className={`signal-card ${criticalFindings > 0 ? 'bad' : 'good'}`}>
-              <span>Critical Findings</span>
-              <strong>{criticalFindings}</strong>
-              <small>{warningFindings} warnings in current scope</small>
-            </article>
-            <article className={`signal-card ${impactedWorkloads > 0 ? 'warn' : 'good'}`}>
-              <span>Impacted Workloads</span>
-              <strong>{impactedWorkloads}</strong>
-              <small>{pods.length} pods · {deployments.length} deployments observed</small>
-            </article>
-            <article className={`signal-card ${summary.cluster.events.warningsLastHour > 0 ? 'warn' : 'good'}`}>
-              <span>Warnings Last Hour</span>
-              <strong>{summary.cluster.events.warningsLastHour}</strong>
-              <small>{warningEvents.length} warning events loaded</small>
-            </article>
-            <article className="signal-card info">
-              <span>AI Status</span>
-              <strong>{activeProvider}</strong>
-              <small>{activeInvestigation.length} read-only checks executed</small>
-            </article>
+        {activeTab === 'overview' && summary ? (
+          <section className="tab-panel overview-panel" aria-label="Overview dashboard">
+            <section className={`summary-hero ${postureTone}`}>
+              <div>
+                <p className="eyebrow">Current scope posture</p>
+                <h2>{postureLabel}</h2>
+                <p>{scopeFindings.length} findings, {impactedWorkloads} impacted workloads, and {warningEvents.length} warning events in the selected scope.</p>
+              </div>
+              <button type="button" onClick={() => setActiveTab('ai')}>Investigate with AI</button>
+            </section>
+            <section className="ops-strip" aria-label="Operational counters">
+              {evidenceCounters.map((counter) => (
+                <article className={`counter ${counter.tone}`} key={counter.label}>
+                  <span>{counter.label}</span>
+                  <strong>{counter.value}</strong>
+                </article>
+              ))}
+            </section>
+            <section className="grid signal-grid" aria-label="Cluster summary">
+              {cards.slice(0, 4).map((card) => (
+                <article className={`card ${card.tone}`} key={card.label}>
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                </article>
+              ))}
+            </section>
+            <section className="overview-grid">
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">Priority queue</p>
+                    <h2>Top diagnostics</h2>
+                  </div>
+                  <button type="button" className="secondary-button" onClick={() => setActiveTab('diagnostics')}>View all</button>
+                </div>
+                {visibleFindings.length === 0 ? <div className="empty-state">No deterministic issues detected for the current filters.</div> : null}
+                <div className="findings-list compact-list">
+                  {visibleFindings.slice(0, 3).map((finding) => (
+                    <article className={`finding ${finding.severity}`} key={finding.id}>
+                      <div>
+                        <span className={`badge ${finding.severity}`}>{finding.severity}</span>
+                        <h3>{finding.summary}</h3>
+                        <p>{finding.resourceKind}/{finding.resourceName}{finding.namespace ? ` in ${finding.namespace}` : ''}</p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </article>
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">Runtime</p>
+                    <h2>Evidence sources</h2>
+                  </div>
+                  <span className={`pill ${metrics?.status === 'available' ? 'good' : 'warn'}`}>{metrics?.status ?? 'loading'}</span>
+                </div>
+                <div className="resource-list">
+                  <p>Kubernetes API: {summary.source ?? 'live cluster'}</p>
+                  <p>Provider: {activeProvider}</p>
+                  <p>Metrics: {[metrics?.reason, metrics?.details].filter(Boolean).join(' · ') || metrics?.status || 'loading'}</p>
+                  {summary.timestamp ? <p>Last update: {new Date(summary.timestamp).toLocaleString()}</p> : null}
+                </div>
+              </article>
+            </section>
           </section>
         ) : null}
 
+        {activeTab === 'ai' ? (
         <section className="panel ai-panel command-panel" id="analysis">
           <div className="panel-heading">
             <div>
-              <p className="eyebrow">Análisis del cluster</p>
+              <p className="eyebrow">Investigation desk</p>
               <h2>Investigación guiada con evidencia Kubernetes</h2>
             </div>
             <button type="button" onClick={() => void analyzeWithAi()} disabled={aiLoading}>
@@ -662,6 +725,8 @@ export function App() {
             <span className="runtime-chip">Provider {activeProvider}</span>
             <span className="runtime-chip">Scope {selectedNamespace === 'all' ? 'cluster' : selectedNamespace}</span>
             <span className="runtime-chip">Cache {chatResponse?.cached || aiAnalysis?.cached ? 'hit' : 'ready'}</span>
+            <span className="runtime-chip">Checks {activeInvestigation.length}</span>
+            <span className="runtime-chip good">Read-only</span>
           </div>
 
           <div className="analysis-grid">
@@ -676,7 +741,7 @@ export function App() {
                 />
               </label>
               <button type="button" onClick={() => void askAiChat()} disabled={chatLoading}>
-                {chatLoading ? 'Investigando...' : 'Run analysis'}
+                {chatLoading ? 'Investigando...' : 'Investigar'}
               </button>
             </div>
             <aside className="context-card">
@@ -686,9 +751,9 @@ export function App() {
             </aside>
           </div>
 
-          {chatError ? <div className="alert">No se pudo ejecutar el chat AI: {chatError}</div> : null}
+          {chatError ? <div className="alert" role="alert">No se pudo ejecutar el chat AI: {chatError}</div> : null}
           {!chatResponse && !chatLoading ? (
-            <div className="empty-state">No analysis run yet. Submit an investigation brief or analyze the current view.</div>
+            <div className="empty-state">Todavía no se ejecutó ningún análisis. Inicia una investigación o analiza la vista actual.</div>
           ) : null}
           {chatResponse ? (
             <div className="ai-summary chat-answer">
@@ -696,7 +761,7 @@ export function App() {
                 <span className="runtime-chip">{chatResponse.cached ? 'cached response' : 'fresh response'}</span>
                 <span className="runtime-chip">{chatResponse.toolsUsed.length} checks</span>
               </div>
-              <p>{chatResponse.answer.answer}</p>
+              <Markdown>{chatResponse.answer.answer}</Markdown>
               <strong>Evidencia</strong>
               <p>{chatResponse.answer.evidence.join(' · ') || 'Sin evidencia adicional.'}</p>
               {chatResponse.answer.missingData.length > 0 ? (
@@ -730,7 +795,7 @@ export function App() {
             </div>
           ) : null}
 
-          {aiError ? <div className="alert">No se pudo ejecutar el análisis AI: {aiError}</div> : null}
+          {aiError ? <div className="alert" role="alert">No se pudo ejecutar el análisis AI: {aiError}</div> : null}
           {aiAnalysis ? (
             <div className="ai-result">
               <div className="ai-summary">
@@ -738,7 +803,7 @@ export function App() {
                   {aiAnalysis.analysis.overallSeverity}
                 </span>
                 <span className="runtime-chip">{aiAnalysis.cached ? 'cached response' : 'fresh response'}</span>
-                <p>{aiAnalysis.analysis.summary}</p>
+                <Markdown>{aiAnalysis.analysis.summary}</Markdown>
                 <small>
                   Provider: {aiAnalysis.provider} · Cached:{' '}
                   {String(aiAnalysis.cached ?? false)}
@@ -773,24 +838,10 @@ export function App() {
             </div>
           ) : null}
         </section>
-
-        {summary ? (
-          <>
-          <section className="section-title" id="dashboard">
-            <p className="eyebrow">Signals</p>
-            <h2>Cluster signals</h2>
-          </section>
-          <section className="grid signal-grid" aria-label="Cluster summary">
-            {cards.map((card) => (
-              <article className={`card ${card.tone}`} key={card.label}>
-                <span>{card.label}</span>
-                <strong>{card.value}</strong>
-              </article>
-            ))}
-          </section>
-          </>
         ) : null}
 
+        {activeTab === 'workloads' ? (
+        <section className="tab-panel">
         <section className="section-title" id="workloads">
           <p className="eyebrow">Operational evidence</p>
           <h2>Cluster resources</h2>
@@ -939,7 +990,10 @@ export function App() {
             </div>
           </div>
         </section>
+        </section>
+        ) : null}
 
+        {activeTab === 'diagnostics' ? (
         <section className="panel findings-panel" id="findings">
           <div className="panel-heading">
             <div>
@@ -974,7 +1028,10 @@ export function App() {
             </div>
           )}
         </section>
+        ) : null}
 
+        {activeTab === 'events' ? (
+        <section className="tab-panel">
         <section className="panel meta-panel" id="events">
           <div className="panel-heading">
             <div>
@@ -1037,16 +1094,11 @@ export function App() {
               </div>
             </div>
           ) : (
-            <p>{metrics?.reason ?? 'Metrics API status is loading.'}</p>
+            <p>{[metrics?.reason, metrics?.details].filter(Boolean).join(' · ') || 'Metrics API status is loading.'}</p>
           )}
         </section>
-
-        <section className="panel meta-panel">
-          <p className="eyebrow">Runtime</p>
-          <h2>{summary?.source ?? 'Kubernetes API'} summary</h2>
-          <p>The dashboard refreshes every 30 seconds. AI calls are manual, cached, and backed by read-only Kubernetes evidence.</p>
-          {summary?.timestamp ? <p>Last update: {new Date(summary.timestamp).toLocaleString()}</p> : null}
         </section>
+        ) : null}
       </section>
     </main>
   );

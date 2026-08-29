@@ -28,7 +28,6 @@ data:
   KOI_BEDROCK_TEMPERATURE: {{ .Values.llm.bedrock.temperature | quote }}
   KOI_OPENAI_COMPATIBLE_BASE_URL: {{ .Values.llm.openaiCompatible.baseUrl | quote }}
   KOI_OPENAI_COMPATIBLE_MODEL: {{ .Values.llm.openaiCompatible.model | quote }}
-  KOI_AUTH_ENABLED: {{ .Values.auth.enabled | quote }}
   KOI_AUTH_USERNAME: {{ .Values.auth.username | quote }}
   KOI_AUTH_OIDC_ENABLED: {{ .Values.auth.oidc.enabled | quote }}
   KOI_AUTH_OIDC_ISSUER_URL: {{ .Values.auth.oidc.issuerUrl | quote }}

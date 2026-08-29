@@ -21,21 +21,23 @@ def _sign(payload: str, secret: str) -> str:
 
 
 def create_session_token(username: str, settings: Settings, groups: list[str] | None = None) -> str:
+    secret = settings.auth_session_secret or ""
     payload = {
         "sub": username,
         "exp": int(time.time()) + settings.auth_session_ttl_seconds,
         "groups": groups or [],
     }
     encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode()
-    return f"{encoded}.{_sign(encoded, settings.auth_session_secret)}"
+    return f"{encoded}.{_sign(encoded, secret)}"
 
 
 def read_session_token(token: str, settings: Settings) -> dict[str, Any] | None:
+    secret = settings.auth_session_secret or ""
     try:
         encoded, signature = token.split(".", 1)
     except ValueError:
         return None
-    if not hmac.compare_digest(signature, _sign(encoded, settings.auth_session_secret)):
+    if not hmac.compare_digest(signature, _sign(encoded, secret)):
         return None
     try:
         payload = json.loads(base64.urlsafe_b64decode(encoded.encode()).decode())
@@ -47,8 +49,9 @@ def read_session_token(token: str, settings: Settings) -> dict[str, Any] | None:
 
 
 def verify_credentials(username: str, password: str, settings: Settings) -> bool:
+    stored = settings.auth_password or ""
     return hmac.compare_digest(username, settings.auth_username) and hmac.compare_digest(
-        password, settings.auth_password
+        password, stored
     )
 
 
@@ -69,12 +72,14 @@ def clear_session_cookie(response: Response) -> None:
 
 
 def create_oidc_state(settings: Settings, next_url: str = "/") -> str:
-    serializer = URLSafeTimedSerializer(settings.auth_session_secret, salt="oidc-state")
+    secret = settings.auth_session_secret or ""
+    serializer = URLSafeTimedSerializer(secret, salt="oidc-state")
     return serializer.dumps({"next": next_url})
 
 
 def read_oidc_state(state: str, settings: Settings) -> dict[str, Any] | None:
-    serializer = URLSafeTimedSerializer(settings.auth_session_secret, salt="oidc-state")
+    secret = settings.auth_session_secret or ""
+    serializer = URLSafeTimedSerializer(secret, salt="oidc-state")
     try:
         payload = serializer.loads(state, max_age=600)
     except BadSignature:
@@ -155,8 +160,6 @@ async def fetch_oidc_userinfo(access_token: str, settings: Settings) -> dict[str
 
 
 def current_user(request: Request, settings: Settings) -> str | None:
-    if not settings.auth_enabled:
-        return "anonymous"
     token = request.cookies.get(SESSION_COOKIE_NAME)
     if not token:
         return None

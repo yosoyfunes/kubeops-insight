@@ -1,6 +1,8 @@
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from app.ai.service import ai_status, analyze_cluster, chat
 from app.auth import (
@@ -22,6 +24,7 @@ from app.kubernetes import service as kubernetes_service
 from app.metrics.provider import get_metrics_summary
 
 router = APIRouter()
+limiter = Limiter(key_func=get_remote_address)
 
 
 class ChatRequest(BaseModel):
@@ -52,7 +55,6 @@ async def auth_me(request: Request) -> dict[str, object]:
     settings = get_settings()
     user = current_user(request, settings)
     return {
-        "enabled": settings.auth_enabled,
         "authenticated": bool(user),
         "username": user,
         "oidcEnabled": settings.auth_oidc_enabled,
@@ -61,10 +63,9 @@ async def auth_me(request: Request) -> dict[str, object]:
 
 
 @router.post("/auth/login", tags=["auth"])
-async def auth_login(payload: LoginRequest, response: Response) -> dict[str, object]:
+@limiter.limit("10/minute")
+async def auth_login(request: Request, payload: LoginRequest, response: Response) -> dict[str, object]:
     settings = get_settings()
-    if not settings.auth_enabled:
-        return {"authenticated": True, "username": "anonymous"}
     if not verify_credentials(payload.username, payload.password, settings):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     set_session_cookie(response, create_session_token(payload.username, settings), settings)
@@ -80,7 +81,7 @@ async def auth_logout(response: Response) -> dict[str, bool]:
 @router.get("/auth/oidc/login", tags=["auth"])
 async def auth_oidc_login(next_url: str = "/") -> RedirectResponse:
     settings = get_settings()
-    if not settings.auth_enabled or not settings.auth_oidc_enabled:
+    if not settings.auth_oidc_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC is not enabled")
     if not settings.auth_oidc_client_id or not settings.auth_oidc_client_secret or not settings.auth_oidc_redirect_uri:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OIDC client is not configured")
