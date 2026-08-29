@@ -15,6 +15,7 @@ from app.auth import (
     exchange_oidc_code,
     fetch_oidc_userinfo,
     read_oidc_state,
+    sanitize_next_path,
     set_oidc_state_cookie,
     set_session_cookie,
     verify_credentials,
@@ -85,9 +86,9 @@ async def auth_oidc_login(next_url: str = "/") -> RedirectResponse:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC is not enabled")
     if not settings.auth_oidc_client_id or not settings.auth_oidc_client_secret or not settings.auth_oidc_redirect_uri:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OIDC client is not configured")
-    state = create_oidc_state(settings, next_url)
+    state = create_oidc_state(settings, sanitize_next_path(next_url))
     redirect = RedirectResponse(await build_oidc_authorization_url(settings, state))
-    set_oidc_state_cookie(redirect, state)
+    set_oidc_state_cookie(redirect, state, settings)
     return redirect
 
 
@@ -110,7 +111,7 @@ async def auth_oidc_callback(request: Request, code: str, state: str) -> Redirec
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="OIDC user identity is missing")
     raw_groups = userinfo.get(settings.auth_oidc_groups_claim, [])
     groups = raw_groups if isinstance(raw_groups, list) else []
-    redirect = RedirectResponse(str(state_payload.get("next") or "/"))
+    redirect = RedirectResponse(sanitize_next_path(str(state_payload.get("next") or "/")))
     set_session_cookie(redirect, create_session_token(username, settings, [str(group) for group in groups]), settings)
     clear_oidc_state_cookie(redirect)
     return redirect

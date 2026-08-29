@@ -107,6 +107,7 @@ auth:
   password: ""
   # Leave empty to generate and preserve a random session signing secret in the chart-managed Secret.
   sessionSecret: ""
+  cookieSecure: true
   existingSecret: ""
   oidc:
     enabled: false

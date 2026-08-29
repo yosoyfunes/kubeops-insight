@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     auth_password: str | None = None
     auth_session_secret: str | None = None
     auth_session_ttl_seconds: int = 28_800
+    auth_cookie_secure: bool = True
     auth_oidc_enabled: bool = False
     auth_oidc_issuer_url: str | None = None
     auth_oidc_client_id: str | None = None
