@@ -58,6 +58,12 @@ make setup
 make dev
 ```
 
+For local backend auth, create `backend/.env` from the example and set real values:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
 Backend:
 
 ```bash
@@ -65,11 +71,26 @@ curl http://localhost:8000/health
 curl http://localhost:8000/api/v1/ready
 ```
 
+API docs:
+
+```text
+http://localhost:8000/docs
+http://localhost:8000/redoc
+http://localhost:8000/openapi.json
+```
+
+If authentication is enabled, protected endpoints in Swagger UI require logging in first so the browser holds a valid session cookie.
+
 Frontend:
 
 ```text
 http://localhost:5173
 ```
+
+Local login:
+
+- Username: `admin`
+- Password: the value configured in `backend/.env`
 
 ## Helm Install
 
@@ -96,7 +117,7 @@ kubectl -n kubeops-insight port-forward svc/kubeops-insight-kubeops-insight-fron
 
 Open `http://localhost:5173`.
 
-Authentication is enabled by default. If `auth.password` is empty, the chart generates and preserves an initial password in the chart-managed Secret.
+Authentication is always required. If `auth.password` is empty, the chart generates and preserves an initial password in the chart-managed Secret.
 
 ```bash
 kubectl -n kubeops-insight get secret kubeops-insight-kubeops-insight-auth \

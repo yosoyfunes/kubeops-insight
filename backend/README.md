@@ -54,6 +54,14 @@ On EKS, use IRSA and let the AWS SDK credential chain resolve credentials from t
 
 From `backend/`:
 
+1. Create a local env file from the example and set a real password and session secret.
+
+```bash
+cp .env.example .env
+```
+
+2. Start the API.
+
 ```bash
 .venv/bin/uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -64,6 +72,16 @@ Health checks:
 curl http://localhost:8000/health
 curl http://localhost:8000/api/v1/ready
 ```
+
+OpenAPI and interactive docs:
+
+```text
+http://localhost:8000/docs
+http://localhost:8000/redoc
+http://localhost:8000/openapi.json
+```
+
+The docs remain available, but protected endpoints require a valid session cookie.
 
 ## Tests And Lint
 

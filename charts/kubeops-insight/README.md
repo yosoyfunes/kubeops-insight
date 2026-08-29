@@ -31,7 +31,7 @@ kubectl -n kubeops-insight port-forward svc/kubeops-insight-kubeops-insight-fron
 
 Open `http://localhost:5173`.
 
-Authentication is enabled by default. If `auth.password` is empty, the chart generates and preserves a random password in the chart-managed Secret.
+Authentication is always required. If `auth.password` is empty, the chart generates and preserves a random password in the chart-managed Secret.
 
 ```bash
 kubectl -n kubeops-insight get secret kubeops-insight-kubeops-insight-auth \
@@ -161,7 +161,6 @@ auth:
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `auth.enabled` | bool | `true` | Require login with local credentials or OIDC. |
 | `auth.username` | string | `admin` | Local login username. |
 | `auth.existingSecret` | string | `""` | Existing Secret with `password` and `sessionSecret`. |
 | `auth.oidc.enabled` | bool | `false` | Enable OIDC login. |
