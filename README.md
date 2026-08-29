@@ -170,7 +170,7 @@ helm upgrade --install kubeops-insight kubeops-insight/kubeops-insight \
   --set llm.openaiCompatible.existingSecret=kubeops-insight-openai
 ```
 
-Gemini can be used through Google's OpenAI-compatible endpoint. `gemini-flash-lite-latest` is currently the recommended model because `gemini-flash-latest` may return transient high-demand `503` errors.
+Gemini can be used through Google's OpenAI-compatible endpoint. `gemini-flash-lite-latest` is the recommended model.
 
 ```bash
 kubectl -n kubeops-insight create secret generic kubeops-insight-gemini \
@@ -206,7 +206,7 @@ helm upgrade --install kubeops-insight kubeops-insight/kubeops-insight \
   --set 'metrics-server.args[0]=--kubelet-insecure-tls'
 ```
 
-If Metrics Server is absent, starting, unavailable or unable to serve metrics, the backend returns `status=unavailable` instead of failing the dashboard.
+If Metrics Server is unavailable, the backend returns `status=unavailable` instead of failing the dashboard.
 
 ## Development Commands
 
@@ -229,13 +229,6 @@ make helm-template
 - Secrets must be stored in Kubernetes Secrets, not ConfigMaps.
 - Bedrock on EKS should use IRSA and the AWS SDK credential chain.
 - Containers run as non-root with read-only root filesystem defaults.
-
-## Current Limitations
-
-- Kubernetes reads use a simple in-memory TTL cache, not watches/informers.
-- Prometheus integration is still pending.
-- Fine-grained RBAC based on OIDC groups is still pending.
-- Mutating action execution is not implemented.
 
 ## Contributing
 

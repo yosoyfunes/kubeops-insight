@@ -1,6 +1,6 @@
 # Helm Values Reference
 
-`charts/kubeops-insight/values.yaml` is the authoritative source of default chart values.
+This page summarizes the main Helm chart values used by KubeOps Insight.
 
 ## Core sections
 
@@ -72,4 +72,4 @@
 - Bedrock is the default provider path
 - token, cycle, log, and cost controls are part of the chart surface
 
-`values.yaml` plus chart validation/schema files remain the source of truth for defaults and conditional behavior.
+See `charts/kubeops-insight/values.yaml` for the full default set.

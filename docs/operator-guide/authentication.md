@@ -41,7 +41,3 @@ OIDC handling is hardened to:
 - expire state after a bounded window
 - reject external redirect targets
 - return controlled auth errors for provider failures
-
-## Limitation
-
-Authentication exists today, but fine-grained app authorization remains a future step. Group claims are collected, but viewer/operator product-role enforcement is not fully implemented yet.

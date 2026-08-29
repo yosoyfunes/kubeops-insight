@@ -29,7 +29,7 @@ Each finding includes:
 
 ## Rule coverage
 
-The product currently checks for common Kubernetes problems such as:
+KubeOps Insight checks for common Kubernetes problems such as:
 
 - pod failures
 - CrashLoopBackOff patterns

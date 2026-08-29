@@ -57,12 +57,9 @@ The AI path is grounded by:
 - no unrestricted cluster state dump into prompts
 - degrade gracefully when optional dependencies are unavailable
 
-## Limitations
+## Operational model
 
-Still-maturing areas include:
-
-- viewer/operator authorization
-- audit persistence
-- richer product observability
-- more restrictive default CORS and NetworkPolicy posture
-- higher-availability production defaults
+- live Kubernetes reads are cached in memory with a TTL-based approach
+- authentication protects product access
+- deterministic diagnostics run before AI interpretation
+- AI remains bounded by compact evidence and curated read-only tools

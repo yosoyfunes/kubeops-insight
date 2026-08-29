@@ -4,8 +4,6 @@
 
 Use `/api/v1` as the canonical API prefix.
 
-The backend also mounts routes at root for compatibility, but product documentation should treat `/api/v1` as the stable public path.
-
 ## Interactive API docs
 
 - Swagger UI: `/docs`
@@ -67,6 +65,4 @@ Protected endpoints require a valid authenticated session cookie.
 - `/api/v1/events` also supports `limit` and `minutes`
 - AI endpoints can operate on the selected namespace scope
 
-## Recommendation
-
-Use the generated OpenAPI output as the authoritative contract for request parameters and request body schemas.
+For request parameters and request body schemas, use the generated OpenAPI output exposed by the backend.

@@ -2,9 +2,9 @@
 
 ## Runtime behavior
 
-KubeOps Insight currently uses the Kubernetes Metrics API through Metrics Server when available.
+KubeOps Insight reads resource metrics from the Kubernetes Metrics API when Metrics Server is available.
 
-If Metrics Server is absent or not currently serving metrics, the backend returns:
+If Metrics Server is unavailable, the backend returns:
 
 ```text
 status=unavailable
@@ -37,4 +37,4 @@ helm upgrade --install kubeops-insight kubeops-insight/kubeops-insight \
 
 ## Scope note
 
-The current executable product path is Metrics Server-oriented.
+KubeOps Insight uses Metrics Server for the built-in metrics path.

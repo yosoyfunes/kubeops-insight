@@ -48,7 +48,3 @@ The chart already includes:
 - read-only root filesystem defaults
 - NetworkPolicy templates
 - read-only RBAC templates
-
-## Remaining gaps
-
-The product has strong read-only boundaries, but there is still work to do on production authorization depth, restrictive network defaults, and auditability.

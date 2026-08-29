@@ -33,6 +33,6 @@ The overview is assembled from:
 The overview separates:
 
 - the real health posture of the selected scope
-- the currently visible filtered findings list
+- the filtered findings list shown in the current view
 
 That keeps the hero tied to the selected scope instead of the current visual filter.

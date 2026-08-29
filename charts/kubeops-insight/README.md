@@ -115,7 +115,7 @@ helm upgrade --install kubeops-insight kubeops-insight/kubeops-insight \
 
 ### Gemini
 
-Gemini can be used through Google's OpenAI-compatible endpoint. `gemini-flash-lite-latest` is currently recommended because `gemini-flash-latest` may return transient high-demand `503` errors.
+Gemini can be used through Google's OpenAI-compatible endpoint. `gemini-flash-lite-latest` is the recommended model.
 
 ```bash
 kubectl -n kubeops-insight create secret generic kubeops-insight-gemini \
@@ -181,4 +181,4 @@ auth:
 | `llm.openaiCompatible.existingSecret` | string | `""` | Secret containing OpenAI-compatible API key as `apiKey`. |
 | `rbac.clusterWide` | bool | `true` | Install cluster-wide read-only RBAC. |
 | `networkPolicy.enabled` | bool | `true` | Render NetworkPolicy. |
-| `actions.enabled` | bool | `false` | Reserved for future mutating actions. |
+| `actions.enabled` | bool | `false` | Keep mutating actions disabled. |

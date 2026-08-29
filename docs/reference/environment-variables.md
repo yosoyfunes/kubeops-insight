@@ -1,6 +1,6 @@
 # Environment Variables
 
-`backend/app/config/settings.py` is the authoritative source of backend environment variables.
+This page summarizes the backend environment variables used by KubeOps Insight.
 
 All backend settings use the `KOI_` prefix.
 
@@ -66,4 +66,4 @@ All backend settings use the `KOI_` prefix.
 
 ## Local template note
 
-`backend/.env.example` is a starter template for local development. It is not the complete authority for every supported runtime variable.
+`backend/.env.example` is a starter template for local development.

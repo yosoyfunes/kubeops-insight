@@ -29,7 +29,7 @@ Operators typically use the product in this order:
 3. Open deterministic findings and recent events.
 4. Narrow the scope to a namespace when triage requires focus.
 5. Run AI analysis or ask a natural-language question.
-6. Use the evidence and recommended next steps to continue remediation outside the product.
+6. Use the evidence and next steps to continue remediation outside the product.
 
 ## Product boundaries
 
