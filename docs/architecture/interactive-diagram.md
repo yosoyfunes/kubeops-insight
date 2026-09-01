@@ -4,7 +4,7 @@ Explore the full system architecture with guided views, component tracing, and t
 
 Open the interactive diagram in its own page:
 
-[Open interactive architecture diagram](../kubeops-insight-architecture.html){ .md-button .md-button--primary target="_blank" }
+[Open interactive architecture diagram](kubeops-insight-architecture.html){ .md-button .md-button--primary target="_blank" }
 
 The interactive view is better suited to a dedicated page than an embedded frame inside the documentation layout.
 
