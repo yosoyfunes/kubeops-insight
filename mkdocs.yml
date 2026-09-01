@@ -60,6 +60,7 @@ nav:
   - Home:
       - Overview: index.md
       - Architecture Overview: architecture/system-architecture.md
+      - Interactive Diagram: architecture/interactive-diagram.md
       - Security Model: security/security-model.md
   - Getting Started:
       - Quick Start: getting-started/quick-start.md

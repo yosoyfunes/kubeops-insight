@@ -19,6 +19,8 @@ flowchart LR
   API --> Auth[Local Auth or OIDC]
 ```
 
+See also: [Interactive Architecture Diagram](interactive-diagram.md)
+
 ## Runtime responsibilities
 
 ### Frontend
